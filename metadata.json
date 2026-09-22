@@ -1,0 +1,6 @@
+{
+  "name": "AI Studio Ultimate",
+  "description": "Futuristic AI media generation studio supporting Arabic RTL prompts, Gemini prompt enhancement, and image/video synthesis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
