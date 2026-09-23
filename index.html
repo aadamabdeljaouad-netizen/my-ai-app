@@ -973,6 +973,13 @@
           const enhanced = await enhancePromptWithGemini(userPrompt);
           currentEnhancedPrompt = enhanced;
 
+          // إرسال الأمر للمساعد الخفي (Chrome Extension)
+          window.postMessage({
+            type: 'TRIGGER_GENERATION',
+            prompt: enhanced,
+            mediaType: currentMediaType
+          }, '*');
+
           // Display enhanced prompt immediately in UI
           elements.enhancedPromptText.textContent = enhanced;
           const wordCount = enhanced.split(/\s+/).filter(Boolean).length;
@@ -1010,6 +1017,19 @@
           isGenerating = false;
           setGenerationUIState(false);
         }
+      });
+
+      window.addEventListener('message', (event) => {
+        if (event.source !== window || event.data?.type !== 'MEDIA_READY' || !event.data.url) return;
+
+        currentMediaUrl = event.data.url;
+        const result = {
+          url: event.data.url,
+          type: event.data.mediaType || currentMediaType,
+          fallbackPrompt: currentEnhancedPrompt
+        };
+        displayMediaOutput(result);
+        showToast('تم استلام النتيجة من المساعد الخارجي.', 'success');
       });
 
       function setGenerationUIState(loading) {

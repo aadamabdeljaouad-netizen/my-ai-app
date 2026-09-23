@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "AI Media Bridge Companion",
+  "version": "1.0",
+  "description": "جسر أتمتة بين واجهة المستخدم والمواقع الخارجية",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.onrender.com/*",
+    "https://aifreeforever.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.onrender.com/*", "http://localhost/*"],
+      "js": ["content_dashboard.js"]
+    },
+    {
+      "matches": ["https://aifreeforever.com/*"],
+      "js": ["content_target.js"]
+    }
+  ]
+}
