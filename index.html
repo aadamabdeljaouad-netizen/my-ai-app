@@ -449,6 +449,23 @@
 
   </div>
 
+  <!-- AIFreeForever Iframe Modal -->
+  <div id="targetModal" class="fixed inset-0 z-[60] hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
+    <div class="glass-panel neon-border rounded-2xl w-full max-w-6xl h-[92vh] shadow-2xl relative overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10 bg-slate-950/40">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/40 animate-pulse"></span>
+          <h2 class="text-sm font-bold text-slate-100 truncate">موقع التوليد الخارجي</h2>
+          <span class="hidden sm:inline text-[11px] text-slate-400 truncate" dir="ltr">aifreeforever.com</span>
+        </div>
+        <button type="button" id="closeTargetModalBtn" title="إغلاق نافذة موقع التوليد" class="shrink-0 w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <iframe id="targetIframe" src="https://aifreeforever.com/" title="موقع aifreeforever.com" class="w-full flex-1 bg-white" allow="clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>
+    </div>
+  </div>
+
   <!-- SETTINGS MODAL -->
   <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 transition-all">
     <div class="glass-panel neon-border rounded-2xl w-full max-w-lg p-6 shadow-2xl relative border border-slate-700/80 transform transition-all scale-95 opacity-0 duration-200" id="settingsModalContent">
@@ -576,6 +593,8 @@
         clearKeyBtn: document.getElementById('clearKeyBtn'),
         toggleApiKeyVisBtn: document.getElementById('toggleApiKeyVisBtn'),
         modalAlert: document.getElementById('modalAlert'),
+        targetModal: document.getElementById('targetModal'),
+        closeTargetModalBtn: document.getElementById('closeTargetModalBtn'),
 
         // Controls
         typeImageBtn: document.getElementById('typeImageBtn'),
@@ -693,6 +712,19 @@
       elements.openSettingsBtn.addEventListener('click', openSettingsModal);
       elements.closeSettingsBtn.addEventListener('click', closeSettingsModal);
       elements.cancelSettingsBtn.addEventListener('click', closeSettingsModal);
+
+      function openTargetModal() {
+        elements.targetModal.classList.remove('hidden');
+      }
+
+      function closeTargetModal() {
+        elements.targetModal.classList.add('hidden');
+      }
+
+      elements.closeTargetModalBtn.addEventListener('click', closeTargetModal);
+      elements.targetModal.addEventListener('click', (event) => {
+        if (event.target === elements.targetModal) closeTargetModal();
+      });
 
       // Close modal on click outside
       elements.settingsModal.addEventListener('click', (e) => {
@@ -931,6 +963,7 @@
 
         isGenerating = true;
         setGenerationUIState(true);
+        openTargetModal();
         const startTime = Date.now();
 
         try {
@@ -991,6 +1024,8 @@
 
       window.addEventListener('message', (event) => {
         if (event.source !== window || event.data?.type !== 'MEDIA_READY' || !event.data.url) return;
+
+        closeTargetModal();
 
         if (!pendingExtensionResult || pendingExtensionResult.mediaType !== (event.data.mediaType || currentMediaType)) return;
 

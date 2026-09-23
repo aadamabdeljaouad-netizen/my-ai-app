@@ -6,7 +6,9 @@
   "permissions": [
     "activeTab",
     "tabs",
-    "scripting"
+    "scripting",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "https://*.onrender.com/*",
@@ -15,6 +17,15 @@
   "background": {
     "service_worker": "background.js"
   },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "aifreeforever_frame_headers",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
   "content_scripts": [
     {
       "matches": ["https://*.onrender.com/*", "http://localhost/*"],
@@ -22,7 +33,8 @@
     },
     {
       "matches": ["https://aifreeforever.com/*"],
-      "js": ["content_target.js"]
+      "js": ["content_target.js"],
+      "all_frames": true
     }
   ]
 }
