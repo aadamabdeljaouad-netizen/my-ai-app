@@ -411,7 +411,7 @@
           <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
             <div class="flex items-center gap-4">
               <span id="mediaDimsLabel"><i class="fa-solid fa-vector-square ml-1 text-slate-500"></i> الدقة: 1024x1024</span>
-              <span id="mediaEngineLabel"><i class="fa-solid fa-server ml-1 text-slate-500"></i> المحرك: Gemini Flash + Pollinations Engine</span>
+              <span id="mediaEngineLabel"><i class="fa-solid fa-server ml-1 text-slate-500"></i> المحرك: Gemini Flash + AI Media Bridge Extension</span>
             </div>
             <span id="generationTimeLabel" class="text-[11px] text-slate-500">--:--</span>
           </div>
@@ -891,59 +891,24 @@
         return candidate.trim();
       }
 
-      // --- STAGE 2: GENERATE MEDIA ---
-      async function generateMedia(enhancedPrompt) {
-        updateLoadingStatus(
-          'المرحلة 2: إرسال الطلب لمحرك التوليد الفائق...',
-          `جاري تشكيل البيكسلات وضبط الإضاءة بأبعاد ${selectedAspectRatio.width}x${selectedAspectRatio.height}...`,
-          65,
-          'fa-microchip'
-        );
+      let pendingExtensionResult = null;
 
-        const seed = Math.floor(Math.random() * 10000000);
-        
-        if (currentMediaType === 'image') {
-          // Pollinations High-res image generation
-          const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=${selectedAspectRatio.width}&height=${selectedAspectRatio.height}&seed=${seed}&nologo=true&enhance=false`;
+      function waitForExtensionResult(mediaType) {
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            pendingExtensionResult = null;
+            reject(new Error(`انتهت مهلة انتظار نتيجة ${mediaType === 'video' ? 'الفيديو' : 'الصورة'} من الإضافة.`));
+          }, 120000);
 
-          // Preload image to guarantee complete render before presenting
-          await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            const timeout = setTimeout(() => {
-              // Even if image load is slow, proceed to display
-              resolve(imageUrl);
-            }, 15000);
-
-            img.onload = () => {
+          pendingExtensionResult = {
+            mediaType,
+            resolve: (result) => {
               clearTimeout(timeout);
-              resolve(imageUrl);
-            };
-            img.onerror = () => {
-              clearTimeout(timeout);
-              // Fallback direct url
-              resolve(imageUrl);
-            };
-            img.src = imageUrl;
-          });
-
-          return { url: imageUrl, type: 'image' };
-        } else {
-          // Video Generation flow
-          updateLoadingStatus(
-            'المرحلة 2: صياغة مشاهد الفيديو السينمائي...',
-            'جاري تجميع الإطارات الحركية وتوليد مسارات الكاميرا ثلاثية الأبعاد...',
-            75,
-            'fa-video'
-          );
-
-          // Attempt Pollinations Video or direct generative video stream
-          const videoPromptUrl = `https://gen.pollinations.ai/video/${encodeURIComponent(enhancedPrompt)}?seed=${seed}&width=${selectedAspectRatio.width}&height=${selectedAspectRatio.height}`;
-          
-          // Also prepare a high-quality responsive video demonstration/animation fallback loop
-          // Test if video is directly loadable or provide standard motion loop
-          return { url: videoPromptUrl, type: 'video', fallbackPrompt: enhancedPrompt };
-        }
+              pendingExtensionResult = null;
+              resolve(result);
+            }
+          };
+        });
       }
 
       // --- MAIN WORKFLOW: ENHANCE & GENERATE ---
@@ -973,20 +938,25 @@
           const enhanced = await enhancePromptWithGemini(userPrompt);
           currentEnhancedPrompt = enhanced;
 
-          // إرسال الأمر للمساعد الخفي (Chrome Extension)
-          window.postMessage({
-            type: 'TRIGGER_GENERATION',
-            prompt: enhanced,
-            mediaType: currentMediaType
-          }, '*');
-
           // Display enhanced prompt immediately in UI
           elements.enhancedPromptText.textContent = enhanced;
           const wordCount = enhanced.split(/\s+/).filter(Boolean).length;
           elements.enhancedPromptWordCount.textContent = `${wordCount} كلمة إنجليزية`;
 
-          // 2. Stage 2: Media Generation
-          const result = await generateMedia(enhanced);
+          // 2. Stage 2: Generate through the browser extension
+          updateLoadingStatus(
+            'المرحلة 2: انتظار المساعد الخارجي...',
+            'جاري تنفيذ الطلب على موقع التوليد وانتظار رابط الوسائط النهائي...',
+            70,
+            currentMediaType === 'video' ? 'fa-video' : 'fa-image'
+          );
+          const resultPromise = waitForExtensionResult(currentMediaType);
+          window.postMessage({
+            type: 'TRIGGER_GENERATION',
+            prompt: enhanced,
+            mediaType: currentMediaType
+          }, '*');
+          const result = await resultPromise;
           currentMediaUrl = result.url;
 
           // 3. Render Output
@@ -1022,14 +992,13 @@
       window.addEventListener('message', (event) => {
         if (event.source !== window || event.data?.type !== 'MEDIA_READY' || !event.data.url) return;
 
-        currentMediaUrl = event.data.url;
-        const result = {
+        if (!pendingExtensionResult || pendingExtensionResult.mediaType !== (event.data.mediaType || currentMediaType)) return;
+
+        pendingExtensionResult.resolve({
           url: event.data.url,
           type: event.data.mediaType || currentMediaType,
           fallbackPrompt: currentEnhancedPrompt
-        };
-        displayMediaOutput(result);
-        showToast('تم استلام النتيجة من المساعد الخارجي.', 'success');
+        });
       });
 
       function setGenerationUIState(loading) {
@@ -1077,13 +1046,10 @@
 
           // Graceful fallback for video player errors if direct video URL fails to load
           elements.outputVideo.onerror = () => {
-            console.warn('Direct video URL loading fallback: showing animated preview mode');
-            // If the video endpoint isn't streamable directly, fall back to high-res image visual
+            console.warn('تعذر تحميل رابط الفيديو المستلم من الإضافة.');
             elements.outputVideo.classList.add('hidden');
-            const fallbackImgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(result.fallbackPrompt || currentEnhancedPrompt)}?width=${selectedAspectRatio.width}&height=${selectedAspectRatio.height}&nologo=true`;
-            elements.outputImage.src = fallbackImgUrl;
-            elements.outputImage.classList.remove('hidden');
-            elements.outputTypeBadge.textContent = 'معاينة سينمائية';
+            elements.outputTypeBadge.textContent = 'تعذر تحميل الفيديو';
+            showToast('تم استلام الرابط لكن تعذر تحميل الفيديو.', 'error');
           };
         }
       }
